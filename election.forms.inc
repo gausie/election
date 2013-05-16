@@ -123,6 +123,14 @@ function election_form($form, &$form_state, stdClass $election) {
     '#date_year_range' => '-2:+5',
   );
 
+  $form['settings_redirect_to_next_post'] = array(
+    '#title' => t('Use a rolling ballot'),
+    '#type' => 'checkbox',
+    '#default_value' => isset($election->settings['redirect_to_next_post']) ? $election->settings['redirect_to_next_post'] : 1,
+    '#required' => FALSE,
+    '#description' => t('If selected, users will be sent to vote for the next available position after voting for one.'),
+  );
+
   $form['published'] = array(
     '#type' => 'checkbox',
     '#title' => t('Published'),

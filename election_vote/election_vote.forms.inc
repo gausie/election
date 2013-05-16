@@ -482,6 +482,49 @@ function election_vote_form_vote($form, &$form_state) {
     // Invoke "After casting a vote" hooks and rules.
     rules_invoke_all('election_vote_vote', $GLOBALS['user'], $post, $election);
 
+    _redirect_to_next_post($post, $election, $form_state);
   }
 
+}
+
+/**
+ * If the election is set to redirect to the next post automatically, find which post should be sent to and go there.
+ *
+ * @param stdClass $post A post object. The next post will only appear after this post alphabetically.
+ * @param stdClass $election An election object that the post belongs to.
+ * @param array $form_state The state of the form
+ * @return string uri of where to redirect to; if no next post is found, returns the current redirect value
+ */
+function _redirect_to_next_post($post, $election, &$form_state) {
+  $settings = $election->settings;
+
+  // Only continue if the election is set to redirect to the next post
+  if ($settings['redirect_to_next_post']) {
+    // Get all posts for this election
+    $query = new EntityFieldQuery;
+    $posts = $query
+      ->entityCondition('entity_type', 'election_post')
+      ->propertyCondition('election_id', $election->election_id)
+      ->propertyOrderBy('title', 'ASC')
+      ->execute();
+    $posts = $posts['election_post'];
+
+    // Ensure the saved post is among the posts for this election
+    if (array_key_exists($post->post_id, $posts)) {
+      $after_current_post = FALSE;
+      for (reset($posts); $election_post = current($posts); next($posts)) {
+        $election_post = current($posts);
+        // Ensure the post is in front of the recently saved post
+        if ($post->post_id == $election_post->post_id) {
+          $after_current_post = TRUE;
+        }
+        // Check if the user has voted on this post if we've already seen the $post
+        if ($after_current_post && !election_vote_check_account_previously_voted($election_post)) {
+          // This post hasn't been voted on; redirect the user to it
+          $form_state['redirect'] = election_post_uri_path($election_post) . '/vote';
+          break;
+        }
+      }
+    }
+  }
 }
