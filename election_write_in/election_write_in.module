@@ -1,0 +1,151 @@
+<?php
+/**
+ * @file
+ * Main module file for Election Write-In Candidates.
+ */
+
+/**
+ * Check whether an election supports write-in candidates.
+ */
+function election_write_in_check_support($election) {
+  if (!election_candidate_check_support($election)) {
+    return FALSE;
+  }
+  return (!empty($election->type_info['write-in candidates']));
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Add write-in candidate settings to the election post edit form.
+ */
+function election_write_in_form_election_post_form_alter(&$form, &$form_state) {
+  $post = $form_state['post'];
+  $election = $form_state['election'];
+  if (!election_write_in_check_support($election)) {
+    return;
+  }
+
+  $form['candidates_nominations']['settings_write_in'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Allow write-in candidates'),
+    '#description' => t('This allows the voter to specify new candidates at the point of voting.'),
+    '#default_value' => isset($post->settings['write_in']) ? $post->settings['write_in'] : 1,
+    '#weight' => 40,
+  );
+}
+
+/**
+ * Implements hook_default_ENTITY_ID().
+ *
+ * @see http://drupal.org/node/999942
+ */
+function election_write_in_default_election_candidate_type() {
+  // Add 'write_in' as an election candidate type.
+  $defaults['write_in'] = entity_create('election_candidate_type', array(
+    'type' => 'write_in',
+    'label' => t('Write-in candidate'),
+  ));
+  return $defaults;
+}
+
+/**
+ * Implements hook_entity_presave().
+ */
+function election_write_in_entity_presave($entity, $type) {
+  if ($type == 'election_candidate' && $entity->type == 'write_in') {
+    // The write-in candidate UID starts off as user 1, so that the candidate
+    // can only be edited by administrators, and there is no association
+    // between the user and the candidate (for anonymity).
+    $entity->uid = 1;
+    // Write-in candidates are never published.
+    $entity->published = 0;
+  }
+}
+
+/**
+ * Get a new write-in candidate object, for a given post.
+ */
+function election_write_in_get_new($post) {
+  $candidate = entity_get_controller('election_candidate')->create(array(
+    'type' => 'write_in',
+    'election_id' => $post->election->election_id,
+    'post_id' => $post->post_id,
+    'is_new' => TRUE,
+  ));
+  return $candidate;
+}
+
+/**
+ * Find whether there are any existing, conflicting, write-in candidates.
+ */
+function election_write_in_find_conflicts($candidate) {
+  if (empty($candidate->is_new)) {
+    throw new Exception('Conflicts can only be looked up for candidates that do not already exist.');
+  }
+  $conflicts = array();
+  $name = db_and()
+    ->condition('first_name', $candidate->first_name, 'LIKE')
+    ->condition('last_name', $candidate->last_name, 'LIKE');
+  $search = db_or()
+    ->condition($name)
+    ->condition('mail', $candidate->mail, 'LIKE');
+  $query = db_select('election_candidate', 'ec')
+    ->fields('ec', array('candidate_id'))
+    ->condition('post_id', $candidate->post_id)
+    ->condition($search);
+  $result = $query->execute()->fetchCol();
+  if (count($result)) {
+    $conflicts = election_candidate_load_multiple($result);
+  }
+  return $conflicts;
+}
+
+/**
+ * Implements hook_election_candidate_post_has_enough_alter().
+ */
+function election_write_in_election_candidate_post_has_enough_alter(&$enough, $post, $num_candidates) {
+  if (!$enough && !empty($post->settings['write_in']) && $num_candidates >= 1) {
+    $enough = TRUE;
+  }
+}
+
+/**
+ * Implements template_preprocess_election_candidate_full_name().
+ */
+function election_write_in_preprocess_election_candidate_full_name(&$variables) {
+  $candidate = $variables['candidate'];
+  if (isset($candidate->type) && $candidate->type == 'write_in') {
+    $candidate->last_name .= ' ' . t('(write-in)');
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function election_write_in_form_election_vote_form_alter(&$form, &$form_state) {
+  if (isset($form_state['vote_require_confirm']) || isset($form_state['abstain_require_confirm'])) {
+    return;
+  }
+
+  $post = $form_state['post'];
+  $election = $post->election;
+
+  if (election_write_in_check_support($election) && !empty($post->settings['write_in'])) {
+    $form['#validate'][] = '_election_write_in_vote_form_validate';
+    $form['#submit'][] = '_election_write_in_vote_form_submit';
+  }
+}
+
+/**
+ * Validation callback on the voting form for write-in candidates.
+ */
+function election_write_in_vote_form_validate($form, &$form_state) {
+}
+
+/**
+ * Submit callback on the voting form, for processing write-in candidates.
+ */
+function election_write_in_vote_form_submit($form, &$form_state) {
+
+}
