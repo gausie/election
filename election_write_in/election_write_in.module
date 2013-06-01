@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Main module file for Election Write-In Candidates.
+ * Main module file for Election Write-In.
  */
 
 /**
@@ -11,7 +11,17 @@ function election_write_in_check_support($election) {
   if (!election_candidate_check_support($election)) {
     return FALSE;
   }
-  return (!empty($election->type_info['write-in candidates']));
+  return (!empty($election->type_info['write-in']));
+}
+
+/**
+ * Check whether write-in candidates are enabled for an election post.
+ */
+function election_write_in_check_enabled($post) {
+  return (
+    election_write_in_check_support($post->election)
+    && !empty($post->settings['write_in'])
+  );
 }
 
 /**
@@ -21,8 +31,7 @@ function election_write_in_check_support($election) {
  */
 function election_write_in_form_election_post_form_alter(&$form, &$form_state) {
   $post = $form_state['post'];
-  $election = $form_state['election'];
-  if (!election_write_in_check_support($election)) {
+  if (!election_write_in_check_support($post->election)) {
     return;
   }
 
@@ -85,9 +94,8 @@ function election_write_in_form_election_vote_form_alter(&$form, &$form_state) {
   }
 
   $post = $form_state['post'];
-  $election = $post->election;
 
-  if (election_write_in_check_support($election) && !empty($post->settings['write_in'])) {
+  if (election_write_in_check_enabled($post)) {
     $form['write_in_wrapper'] = array(
       '#type' => 'fieldset',
       '#title' => t('Write-in candidate'),
@@ -99,50 +107,62 @@ function election_write_in_form_election_vote_form_alter(&$form, &$form_state) {
     $write_in_enabled_state = array(
       ':input[name="write_in_enable"]' => array('checked' => TRUE),
     );
-    $write_in_states = array(
-      'visible' => $write_in_enabled_state,
-      'required' => $write_in_enabled_state,
-    );
     $form['write_in_wrapper']['write_in'] = array(
       '#type' => 'container',
       '#tree' => TRUE,
       '#element_validate' => array('_election_write_in_element_validate'),
+      '#states' => array(
+        'visible' => $write_in_enabled_state,
+        'required' => $write_in_enabled_state,
+      ),
     );
     $form['write_in_wrapper']['write_in']['first_name'] = array(
       '#type' => 'textfield',
       '#title' => t('First name'),
       '#max_length' => 100,
       '#size' => 50,
-      '#states' => $write_in_states,
     );
     $form['write_in_wrapper']['write_in']['last_name'] = array(
       '#type' => 'textfield',
       '#title' => t('Last name'),
       '#max_length' => 100,
       '#size' => 50,
-      '#states' => $write_in_states,
     );
-    drupal_alter('election_write_in_elements', $form, $form_state);
+    drupal_alter('election_write_in_elements', $form['write_in_wrapper']['write_in'], $post);
   }
 }
 
 /**
- * Element validation callback for adding a write-in candidate.
+ * Element validate callback for adding a write-in candidate.
  */
 function _election_write_in_element_validate($element, &$form_state, $form) {
   if (!empty($form_state['values']['write_in_enable'])) {
     $post = $form_state['post'];
     $write_in_values = $form_state['values']['write_in'];
+
+    // Make sure the first and last names are always set.
+    $error = FALSE;
+    if (empty($write_in_values['first_name'])) {
+      form_error($element['first_name'], t("Specify your write-in candidate's first name."));
+      $error = TRUE;
+    }
+    if (empty($write_in_values['last_name'])) {
+      form_error($element['last_name'], t("Specify your write-in candidate's last name."));
+      $error = TRUE;
+    }
+    if ($error) {
+      return;
+    }
+
+    // Initialise the write-in candidate object. The candidate is not saved yet:
+    // other modules need to do this in a form submit handler, using
+    // election_candidate_save().
     $candidate = election_write_in_get_new($post);
-    foreach (array('first_name', 'last_name') as $item) {
-      if (empty($write_in_values[$item])) {
-        form_error($element[$item], t('!name is required.', array(
-          '!name' => drupal_placeholder($element[$item]['#title']),
-        )));
+    foreach ($candidate as $property => $value) {
+      if (isset($write_in_values[$property])) {
+        $candidate->$property = $write_in_values[$property];
       }
     }
-    $candidate->first_name = $write_in_values['first_name'];
-    $candidate->last_name = $write_in_values['last_name'];
     $form_state['write_in_candidate'] = $candidate;
   }
 }

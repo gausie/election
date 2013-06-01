@@ -19,10 +19,9 @@
  *   The number of published, 'hopeful' candidates for this post.
  */
 function hook_election_candidate_post_has_enough_alter(&$enough, $post, $num_candidates) {
-  // Example: if the post has a custom setting (and some kind of custom voting
-  // form) allowing "write-in" candidates, then there are always 'enough'
-  // candidates.
-  if (!empty($post->settings['allow_write_ins'])) {
+  // Example: always say that there are 'enough' candidates for voting, if the
+  // post allows for "write-in" candidates.
+  if (!empty($post->settings['write_in']) && module_exists('election_write_in')) {
     $enough = TRUE;
   }
 }
