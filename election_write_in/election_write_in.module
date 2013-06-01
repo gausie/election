@@ -111,11 +111,15 @@ function election_write_in_form_election_vote_form_alter(&$form, &$form_state) {
     $form['write_in_wrapper']['write_in']['first_name'] = array(
       '#type' => 'textfield',
       '#title' => t('First name'),
+      '#max_length' => 100,
+      '#size' => 50,
       '#states' => $write_in_states,
     );
     $form['write_in_wrapper']['write_in']['last_name'] = array(
       '#type' => 'textfield',
       '#title' => t('Last name'),
+      '#max_length' => 100,
+      '#size' => 50,
       '#states' => $write_in_states,
     );
     drupal_alter('election_write_in_elements', $form, $form_state);
@@ -130,12 +134,15 @@ function _election_write_in_element_validate($element, &$form_state, $form) {
     $post = $form_state['post'];
     $write_in_values = $form_state['values']['write_in'];
     $candidate = election_write_in_get_new($post);
-    if (!empty($write_in_values['first_name'])) {
-      $candidate->first_name = $write_in_values['first_name'];
+    foreach (array('first_name', 'last_name') as $item) {
+      if (empty($write_in_values[$item])) {
+        form_error($element[$item], t('!name is required.', array(
+          '!name' => drupal_placeholder($element[$item]['#title']),
+        )));
+      }
     }
-    if (!empty($write_in_values['last_name'])) {
-      $candidate->last_name = $write_in_values['last_name'];
-    }
+    $candidate->first_name = $write_in_values['first_name'];
+    $candidate->last_name = $write_in_values['last_name'];
     $form_state['write_in_candidate'] = $candidate;
   }
 }
