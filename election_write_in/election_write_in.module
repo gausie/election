@@ -29,7 +29,7 @@ function election_write_in_form_election_post_form_alter(&$form, &$form_state) {
   $form['candidates_nominations']['settings_write_in'] = array(
     '#type' => 'checkbox',
     '#title' => t('Allow write-in candidates'),
-    '#description' => t('This allows the voter to specify new candidates at the point of voting.'),
+    '#description' => t('This gives the voter an option to specify a write-in candidate at the point of voting.'),
     '#default_value' => isset($post->settings['write_in']) ? $post->settings['write_in'] : 1,
     '#weight' => 40,
   );
