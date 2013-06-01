@@ -480,8 +480,15 @@ function election_candidate_entity_property_info() {
  */
 function _election_candidate_get_type_options() {
   $type_options = array();
+  $write_in = module_exists('election_write_in');
   foreach (election_candidate_get_types() as $bundle => $type) {
-    // N.B. no sanitizing happens here.
+    // Exclude the write-in candidate type (if the election_write_in module is
+    // enabled).
+    if ($write_in && $bundle == 'write_in') {
+      continue;
+    }
+    // N.B. no sanitizing happens here: the options are intended to be used in a
+    // Form API 'select' element which sanitizes options anyway.
     $type_options[$bundle] = $type->label;
   }
   return $type_options;
