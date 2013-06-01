@@ -77,31 +77,6 @@ function election_write_in_get_new($post) {
 }
 
 /**
- * Find whether there are any existing, conflicting, write-in candidates.
- */
-function election_write_in_find_conflicts($candidate) {
-  if (empty($candidate->is_new)) {
-    throw new Exception('Conflicts can only be looked up for candidates that do not already exist.');
-  }
-  $conflicts = array();
-  $name = db_and()
-    ->condition('first_name', $candidate->first_name, 'LIKE')
-    ->condition('last_name', $candidate->last_name, 'LIKE');
-  $search = db_or()
-    ->condition($name)
-    ->condition('mail', $candidate->mail, 'LIKE');
-  $query = db_select('election_candidate', 'ec')
-    ->fields('ec', array('candidate_id'))
-    ->condition('post_id', $candidate->post_id)
-    ->condition($search);
-  $result = $query->execute()->fetchCol();
-  if (count($result)) {
-    $conflicts = election_candidate_load_multiple($result);
-  }
-  return $conflicts;
-}
-
-/**
  * Implements hook_form_FORM_ID_alter().
  */
 function election_write_in_form_election_vote_form_alter(&$form, &$form_state) {
