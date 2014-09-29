@@ -73,13 +73,6 @@ function election_vote_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'valid' => array(
-        'description' => 'Whether the vote is still valid. If set to 0, the vote will not be counted.',
-        'type' => 'int',
-        'size' => 'tiny',
-        'not null' => TRUE,
-        'default' => 1,
-      ),
     ),
     'primary key' => array('vote_id'),
     'indexes' => array(
@@ -91,7 +84,6 @@ function election_vote_schema() {
       'ron' => array('ron'),
       'answer' => array('answer'),
       'abstain' => array('abstain'),
-      'valid' => array('valid'),
     ),
     'foreign keys' => array(
       'election' => array(
@@ -162,10 +154,10 @@ function election_vote_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'valid' => array(
-        'description' => 'Whether the ballot is still valid. If set to 0, the ballot will not be counted.',
+      'value' => array(
+        'description' => 'The value of the ballot. If set to 0, the ballot will not be counted.',
         'type' => 'int',
-        'size' => 'tiny',
+        'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 1,
       ),
@@ -179,7 +171,7 @@ function election_vote_schema() {
       'timestamp' => array('timestamp'),
       'ip' => array('ip'),
       'sid_hash' => array('sid_hash'),
-      'valid' => array('valid'),
+      'value' => array('value'),
     ),
     'foreign keys' => array(
       'election' => array(
@@ -205,16 +197,35 @@ function election_vote_schema() {
  * Add the 'valid' column to the election_vote and election_ballot tables.
  */
 function election_vote_update_7001() {
+  // Obsolete.
+}
+
+/**
+ * Add the 'value' column, replacing 'valid'.
+ */
+function election_vote_update_7002() {
   $schema = array(
-    'description' => 'Whether the vote is still valid. If set to 0, the vote will not be counted.',
+    'description' => 'The value of the ballot. If set to 0, the ballot will not be counted.',
     'type' => 'int',
-    'size' => 'tiny',
+    'unsigned' => TRUE,
     'not null' => TRUE,
     'default' => 1,
   );
-  db_add_field('election_vote', 'valid', $schema);
-  $schema['description'] = 'Whether the ballot is still valid. If set to 0, the ballot will not be counted.';
-  db_add_field('election_ballot', 'valid', $schema);
-  db_add_index('election_vote', 'valid', array('valid'));
-  db_add_index('election_ballot', 'valid', array('valid'));
+
+  if (db_field_exists('election_ballot', 'valid')) {
+    if (db_index_exists('election_ballot', 'valid')) {
+      db_drop_index('election_ballot', 'valid');
+    }
+    db_change_field('election_ballot', 'valid', 'value', $schema);
+    db_add_index('election_ballot', 'value', array('value'));
+  }
+  elseif (!db_field_exists('election_ballot', 'value')) {
+    db_add_field('election_ballot', 'value', $schema);
+    db_add_index('election_ballot', 'value', array('value'));
+  }
+
+  if (db_field_exists('election_vote', 'valid')) {
+    db_drop_index('election_vote', 'valid');
+    db_drop_field('election_vote', 'valid');
+  }
 }

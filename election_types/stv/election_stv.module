@@ -357,6 +357,7 @@ function election_stv_preprocess_election_vote_confirm(&$variables) {
     $variables['ranking_changed'] = $ranking_changed;
 
     $header = array(t('Candidate'));
+    $rows = array();
     foreach ($candidate_rankings as $candidate_id => $rank) {
       if ($candidate_id == 'RON') {
         $candidate_item = t('RON (Re-Open Nominations)');
@@ -378,13 +379,6 @@ function election_stv_preprocess_election_vote_confirm(&$variables) {
 
     $header[] = t('Your vote') . ($ranking_changed ? '<sup>*</sup>' : '');
     foreach ($candidate_rankings as $candidate_id => $rank) {
-      if ($candidate_id == 'RON') {
-        $candidate_item = t('RON (Re-Open Nominations)');
-      }
-      else {
-        $candidate = $form_state['candidates'][$candidate_id];
-        $candidate_item = election_candidate_get_name($candidate);
-      }
       $rows[$candidate_id][] = $rank == 'NONE' ? t('-') : _election_stv_get_ordinal($rank);
     }
 

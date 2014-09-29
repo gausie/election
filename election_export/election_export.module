@@ -201,12 +201,14 @@ function election_export_post(stdClass $post, $destination = NULL, array $option
 
   $votes_fields = array('ballot_id', 'candidate_id', 'ron', 'rank', 'abstain');
 
-  $votes_query = db_select('election_vote', 'ev')
-    ->fields('ev', $votes_fields)
+  $votes_query = db_select('election_vote', 'ev');
+  $votes_query->join('election_ballot', 'eb', 'eb.ballot_id = ev.ballot_id');
+  $votes_query->fields('ev', $votes_fields)
+    ->fields('eb', array('value'))
     ->condition('ev.post_id', $post->post_id)
-    ->condition('valid', 1)
-    ->orderBy('ballot_id')
-    ->orderBy('rank');
+    ->condition('eb.value', 1, '>=')
+    ->orderBy('eb.ballot_id')
+    ->orderBy('ev.rank');
 
   $votes = $votes_query->execute();
 
@@ -214,6 +216,7 @@ function election_export_post(stdClass $post, $destination = NULL, array $option
   $allow_abstention = !empty($post->allow_abstention);
 
   $ballots = array();
+  $multipliers = array();
   $ballot_errors = array();
   $last_rank = NULL;
   foreach ($votes as $vote) {
@@ -222,6 +225,7 @@ function election_export_post(stdClass $post, $destination = NULL, array $option
 
     if (!isset($ballots[$ballot_id])) {
       $ballots[$ballot_id] = '';
+      $multipliers[$ballot_id] = $vote->value;
       if ($vote->abstain) {
         if (!$allow_abstention) {
           $ballot_errors[$ballot_id] = t('Abstention found, but abstention is not allowed!');
@@ -289,13 +293,14 @@ function election_export_post(stdClass $post, $destination = NULL, array $option
     if ($options['include ballot ids']) {
       $line .= '(' . $ballot_id . ') ';
     }
-    // Each line begins with a multiplier (always 1) and ends with 0.
+    // Each line begins with a multiplier and ends with 0.
+    $multiplier = $multipliers[$ballot_id];
     if (empty($ballot)) {
       // This is an abstention.
-      $line .= '1 0';
+      $line .= $multiplier . ' 0';
     }
     else {
-      $line .= '1 ' . $ballot . ' 0';
+      $line .= $multiplier . ' ' . $ballot . ' 0';
     }
     // Add any error messages for this ballot in a comment at the end.
     if (isset($ballot_errors[$ballot_id])) {

@@ -171,7 +171,7 @@ function election_vote_undo_form_submit($form, &$form_state) {
       ->fields('eb', array('ballot_id'))
       ->condition('uid', $GLOBALS['user']->uid)
       ->condition('post_id', $post->post_id)
-      ->condition('valid', 1)
+      ->condition('value', 1, '>=')
       ->execute()
       ->fetchCol();
 
@@ -179,13 +179,8 @@ function election_vote_undo_form_submit($form, &$form_state) {
       throw new Exception(t('No votes found.'));
     }
 
-    db_update('election_vote')
-      ->fields(array('valid' => 0))
-      ->condition('ballot_id', $ballot_ids, 'IN')
-      ->execute();
-
     db_update('election_ballot')
-      ->fields(array('valid' => 0))
+      ->fields(array('value' => 0))
       ->condition('ballot_id', $ballot_ids, 'IN')
       ->execute();
 
@@ -360,6 +355,7 @@ function election_vote_form_vote($form, &$form_state) {
     return;
   }
 
+  global $user;
   $success = FALSE;
 
   $transaction = db_transaction();
@@ -369,11 +365,12 @@ function election_vote_form_vote($form, &$form_state) {
     $ballot = array(
       'election_id' => $election->election_id,
       'post_id' => $post->post_id,
-      'uid' => $GLOBALS['user']->uid,
+      'uid' => $user->uid,
       'ip' => ip_address(),
       'agent' => $_SERVER['HTTP_USER_AGENT'],
       'sid_hash' => _election_vote_session_hash(),
       'timestamp' => REQUEST_TIME,
+      'value' => election_vote_get_ballot_value($election, $post, $user),
     );
     $ballot_id = db_insert('election_ballot')
       ->fields($ballot)

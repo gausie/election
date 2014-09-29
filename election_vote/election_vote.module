@@ -373,7 +373,7 @@ function election_vote_check_account_previously_voted($post, $account = NULL) {
   // Build the SQL query, first checking against the UID.
   $query = db_select('election_ballot')
     ->fields('election_ballot', array('ballot_id'))
-    ->condition('valid', 1)
+    ->condition('value', 1, '>=')
     ->condition('uid', $account->uid)
     ->condition('post_id', $post->post_id);
 
@@ -530,4 +530,22 @@ function election_vote_page_explain($post) {
     '#post' => $post,
     '#account' => $user,
   );
+}
+
+/**
+ * Get the value of a ballot, before it is saved.
+ *
+ * @param object $election
+ *   The election entity.
+ * @param object $post
+ *   The post that will be voted for.
+ * @param object $account
+ *   The user who is voting.
+ *
+ * @return int
+ */
+function election_vote_get_ballot_value($election, $post, $account) {
+  $value = 1;
+  drupal_alter('election_vote_ballot_value', $value, $election, $post, $account);
+  return $value;
 }

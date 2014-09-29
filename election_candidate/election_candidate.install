@@ -495,7 +495,6 @@ function election_candidate_update_7105() {
     db_change_field('election_candidate', 'mail', 'mail', array(
       'type' => 'varchar',
       'description' => 'The candidate\'s e-mail address [OBSOLETE].',
-      'type' => 'varchar',
       'length' => 254,
       'not null' => FALSE,
     ));

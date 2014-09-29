@@ -67,7 +67,7 @@ function hook_election_vote_access_explain_alter(&$limitations, $post, $account)
  *   saved unless this implementation returns TRUE.
  */
 function hook_election_vote_ELECTION_TYPE_save($ballot_id, $post, $vote_form, $vote_form_state) {
-  // Get the vote value out of the form.
+  // Get the answer out of the form.
   $answer = $vote_form_state['values']['answer'];
 
   // Save a vote corresponding to this ballot ID.
@@ -81,4 +81,23 @@ function hook_election_vote_ELECTION_TYPE_save($ballot_id, $post, $vote_form, $v
     ->execute();
 
   return TRUE;
+}
+
+/**
+ * Alter the value of a ballot before it is saved.
+ *
+ * @param int &$value
+ *   The value of the ballot, normally 1.
+ * @param object $election
+ *   The election entity.
+ * @param object $post
+ *   The post that will be voted for.
+ * @param object $account
+ *   The user who is voting.
+ */
+function hook_election_vote_ballot_value_alter(&$value, $election, $post, $account) {
+  // The administrator's votes should be counted twice.
+  if (in_array('administrator', $account->roles)) {
+    $value = 2;
+  }
 }
