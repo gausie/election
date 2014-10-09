@@ -281,7 +281,7 @@ function election_vote_form_abstain($form, &$form_state) {
     return;
   }
 
-  $success = FALSE;
+  global $user;
 
   $transaction = db_transaction();
 
@@ -290,11 +290,12 @@ function election_vote_form_abstain($form, &$form_state) {
     $ballot = array(
       'election_id' => $election->election_id,
       'post_id' => $post->post_id,
-      'uid' => $GLOBALS['user']->uid,
+      'uid' => $user->uid,
       'ip' => ip_address(),
       'agent' => $_SERVER['HTTP_USER_AGENT'],
       'sid_hash' => _election_vote_session_hash(),
       'timestamp' => REQUEST_TIME,
+      'value' => election_vote_get_ballot_value($election, $post, $user),
     );
     $ballot_id = db_insert('election_ballot')
       ->fields($ballot)
@@ -316,6 +317,7 @@ function election_vote_form_abstain($form, &$form_state) {
   }
   catch (Exception $e) {
     $transaction->rollback();
+    $success = FALSE;
     watchdog_exception('election_vote', $e, NULL, WATCHDOG_ERROR);
   }
 
@@ -356,7 +358,6 @@ function election_vote_form_vote($form, &$form_state) {
   }
 
   global $user;
-  $success = FALSE;
 
   $transaction = db_transaction();
 

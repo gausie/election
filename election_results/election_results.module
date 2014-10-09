@@ -129,7 +129,7 @@ function election_results_get_totals($post) {
     // Count the number of ballots cast for this post.
     $query = db_select('election_ballot')
       ->condition('post_id', $pid)
-      ->condition('value', 1, '>=')
+      ->condition('value', 0, '>')
       ->countQuery()
       ->distinct();
     $ballots = $query->execute()->fetchField();

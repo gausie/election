@@ -43,7 +43,8 @@ function template_preprocess_election_statistics(&$variables) {
 
   $totals = election_statistics_get_totals($election);
   if ($totals['ballots']) {
-    $totals['posts'] = election_statistics_get_post_totals($election);
+    $posts = _election_statistics_get_posts($election);
+    $totals['posts'] = election_statistics_get_post_totals($election, $posts);
   }
 
   $post_name = election_get_post_name($election->type);
@@ -76,7 +77,7 @@ function template_preprocess_election_statistics(&$variables) {
   $variables['content']['election_table'] = $election_table;
 
   $posts_table = NULL;
-  if (!empty($totals['posts'])) {
+  if (!empty($posts)) {
 
     $header = array(
       'post' => check_plain(drupal_ucfirst($post_name)),
@@ -85,8 +86,6 @@ function template_preprocess_election_statistics(&$variables) {
       'votes' => t('Votes'),
       'abstentions' => t('Abstentions'),
     );
-
-    $posts = _election_statistics_get_posts($election);
 
     $rows = array();
     foreach ($posts as $post_id => $post) {

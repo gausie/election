@@ -404,7 +404,7 @@ function election_stv_preprocess_election_vote_confirm(&$variables) {
  * Implements hook_query_alter().
  */
 function election_stv_query_alter($query) {
-  if ($query->hasTag('election_statistics_totals')) {
+  if ($query->hasTag('election_statistics_total_votes')) {
     $query->addExpression('COUNT(DISTINCT IF(ev.abstain=0, ev.vote_id, NULL))', 'rankings');
   }
 }
@@ -417,9 +417,9 @@ function election_stv_preprocess_election_statistics(&$variables) {
   if ($election->type == 'stv') {
     $totals = $variables['totals'];
     $variables['content']['election_table']['#header']['rankings'] = t('Rankings (STV)');
-    $variables['content']['election_table']['#rows'][0]['rankings'] = t('@rankings (@avg per vote)', array(
+    $variables['content']['election_table']['#rows'][0]['rankings'] = t('@rankings (@avg per ballot)', array(
       '@rankings' => number_format($totals['rankings']),
-      '@avg' => number_format($totals['votes'] ? ($totals['rankings'] / $totals['votes']) : 0, 1),
+      '@avg' => number_format($totals['ballots'] ? ($totals['rankings'] / $totals['ballots']) : 0, 1),
     ));
   }
 }
