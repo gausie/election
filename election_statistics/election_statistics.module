@@ -168,12 +168,24 @@ function election_statistics_get_totals(stdClass $election, stdClass $post = NUL
   if (!$reset && ($cache = cache_get($cache_key)) && $cache->expire > REQUEST_TIME) {
     return $cache->data;
   }
-  $result = array();
-  foreach (_election_statistics_queries($election, $post) as $query) {
-    $result += $query->execute()->fetchAssoc();
+
+  $result = _election_statistics_query_totals($election, $post)
+    ->execute()
+    ->fetchAssoc();
+
+  $result['abstentions'] = 0;
+  $result['votes'] = 0;
+  $votes = _election_statistics_query_votes($election, $post)
+    ->execute()
+    ->fetchAllKeyed();
+  foreach ($votes as $abstain => $value) {
+    $result[$abstain ? 'abstentions' : 'votes'] = $value;
   }
+
   // Cache the result (for 5 minutes by default).
-  cache_set($cache_key, $result, 'cache', REQUEST_TIME + variable_get('election_statistics_ttl', 300));
+  if ($ttl = variable_get('election_statistics_ttl', 300)) {
+    cache_set($cache_key, $result, 'cache', REQUEST_TIME + $ttl);
+  }
   return $result;
 }
 
@@ -205,43 +217,52 @@ function election_statistics_get_post_totals(stdClass $election, array $posts = 
 }
 
 /**
- * Build select queries for getting election statistics.
+ * Build a select query for getting total election statistics.
  *
  * @param object $election
  *   The election object.
  * @param object $post
  *   The election post object (optional).
  *
- * @return SelectQuery[]
- *   An array of Drupal select queries, as returned by db_select().
+ * @return SelectQuery
+ *   A Drupal select query, as returned by db_select().
  */
-function _election_statistics_queries($election, $post = NULL) {
-  $queries = array();
-
-  $base_query = db_select('election_ballot', 'eb')
+function _election_statistics_query_totals($election, $post = NULL) {
+  $query = db_select('election_ballot', 'eb')
     ->condition('eb.election_id', $election->election_id)
     ->condition('eb.value', 0, '>');
-
   if ($post) {
-    $base_query->condition('eb.post_id', $post->post_id);
+    $query->condition('eb.post_id', $post->post_id);
   }
+  $query->addExpression('COUNT(DISTINCT eb.ballot_id)', 'ballots');
+  $query->addExpression('COUNT(DISTINCT IF(eb.uid = 0, eb.sid_hash, eb.uid))', 'voters');
+  $query->addTag('election_statistics_totals');
+  return $query;
+}
 
-  // Get the total numbers of ballots and voters.
-  $queries['totals'] = clone $base_query;
-  $queries['totals']->addExpression('COUNT(DISTINCT eb.ballot_id)', 'ballots');
-  $queries['totals']->addExpression('COUNT(DISTINCT IF(eb.uid = 0, eb.sid_hash, eb.uid))', 'voters');
-  $queries['totals']->addTag('election_statistics_totals');
-
-  // Get the total numbers of abstentions and votes.
-  foreach (array('votes' => 0, 'abstentions' => 1) as $key => $abstain) {
-    $queries[$key] = clone $base_query;
-    $queries[$key]->join('election_vote', 'ev', 'ev.ballot_id = eb.ballot_id');
-    $queries[$key]->condition('ev.abstain', $abstain);
-    $queries[$key]->addExpression('SUM(eb.value)', $key);
-    $queries[$key]->addTag('election_statistics_total_' . $key);
+/**
+ * Build a select query for getting vote/abstention statistics.
+ *
+ * @param object $election
+ *   The election object.
+ * @param object $post
+ *   The election post object (optional).
+ *
+ * @return SelectQuery
+ *   A Drupal select query, as returned by db_select().
+ */
+function _election_statistics_query_votes($election, $post = NULL) {
+  $query = db_select('election_ballot', 'eb')
+    ->condition('eb.election_id', $election->election_id);
+  if ($post) {
+    $query->condition('eb.post_id', $post->post_id);
   }
-
-  return $queries;
+  $query->join('election_vote', 'ev', 'ev.ballot_id = eb.ballot_id');
+  $query->fields('ev', array('abstain'));
+  $query->addExpression('SUM(DISTINCT eb.value)', 'value');
+  $query->groupBy('ev.abstain');
+  $query->addTag('election_statistics_votes');
+  return $query;
 }
 
 /**

@@ -401,21 +401,18 @@ function election_stv_preprocess_election_vote_confirm(&$variables) {
 }
 
 /**
- * Implements hook_query_alter().
- */
-function election_stv_query_alter($query) {
-  if ($query->hasTag('election_statistics_total_votes')) {
-    $query->addExpression('COUNT(DISTINCT IF(ev.abstain=0, ev.vote_id, NULL))', 'rankings');
-  }
-}
-
-/**
  * Implements template_preprocess_election_statistics().
  */
 function election_stv_preprocess_election_statistics(&$variables) {
   $election = $variables['election'];
   if ($election->type == 'stv') {
     $totals = $variables['totals'];
+    $query = db_select('election_ballot', 'eb')
+      ->condition('eb.election_id', $election->election_id)
+      ->condition('eb.value', 1, '>');
+    $query->join('election_vote', 'ev', 'ev.ballot_id = eb.ballot_id');
+    $query->addExpression('COUNT(DISTINCT IF(ev.abstain, 0, ev.vote_id))');
+    $totals['rankings'] = $query->execute()->fetchField();
     $variables['content']['election_table']['#header']['rankings'] = t('Rankings (STV)');
     $variables['content']['election_table']['#rows'][0]['rankings'] = t('@rankings (@avg per ballot)', array(
       '@rankings' => number_format($totals['rankings']),
