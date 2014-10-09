@@ -147,8 +147,6 @@ function election_statistics_block_view($delta = '') {
  *
  * @param object $election
  *   The election entity.
- * @param object $post
- *   The election post entity (optional).
  * @param bool $reset
  *   Whether to bypass the cache for this request. Defaults to FALSE.
  *
@@ -159,31 +157,17 @@ function election_statistics_block_view($delta = '') {
  *     'votes' (integer),
  *     'abstentions' (integer).
  */
-function election_statistics_get_totals(stdClass $election, stdClass $post = NULL, $reset = FALSE) {
+function election_statistics_get_totals(stdClass $election, $reset = FALSE) {
   $cache_key = 'election_statistics:' . $election->election_id;
-  if ($post) {
-    $cache_key .= ':' . $post->post_id;
-  }
+  $ttl = variable_get('election_statistics_ttl', 300);
   // Return cached data if it already exists.
-  if (!$reset && ($cache = cache_get($cache_key)) && $cache->expire > REQUEST_TIME) {
+  if (!$reset && $ttl && ($cache = cache_get($cache_key)) && $cache->expire > REQUEST_TIME) {
     return $cache->data;
   }
-
-  $result = _election_statistics_query_totals($election, $post)
-    ->execute()
-    ->fetchAssoc();
-
-  $result['abstentions'] = 0;
-  $result['votes'] = 0;
-  $votes = _election_statistics_query_votes($election, $post)
-    ->execute()
-    ->fetchAllKeyed();
-  foreach ($votes as $abstain => $value) {
-    $result[$abstain ? 'abstentions' : 'votes'] = $value;
-  }
-
+  $query = _election_statistics_totals_query($election);
+  $result = $query->execute()->fetchAssoc();
   // Cache the result (for 5 minutes by default).
-  if ($ttl = variable_get('election_statistics_ttl', 300)) {
+  if ($ttl) {
     cache_set($cache_key, $result, 'cache', REQUEST_TIME + $ttl);
   }
   return $result;
@@ -196,8 +180,6 @@ function election_statistics_get_totals(stdClass $election, stdClass $post = NUL
  *
  * @param object $election
  *   The election entity.
- * @param array $posts
- *   An array of posts (optional).
  * @param bool $reset
  *   Whether to bypass the cache for this request. Defaults to FALSE.
  *
@@ -205,63 +187,44 @@ function election_statistics_get_totals(stdClass $election, stdClass $post = NUL
  *   An associative array of post statistics, keyed by post ID, containing the
  *   properties listed in election_statistics_get_totals().
  */
-function election_statistics_get_post_totals(stdClass $election, array $posts = array(), $reset = FALSE) {
-  if (!count($posts)) {
-    $posts = election_post_load_by_election($election);
+function election_statistics_get_post_totals(stdClass $election, $reset = FALSE) {
+  $cache_key = 'election_statistics:' . $election->election_id . ':posts';
+  $ttl = variable_get('election_statistics_ttl', 300);
+  // Return cached data if it already exists.
+  if (!$reset && $ttl && ($cache = cache_get($cache_key)) && $cache->expire > REQUEST_TIME) {
+    return $cache->data;
   }
-  $totals = array();
-  foreach ($posts as $post) {
-    $totals[$post->post_id] = election_statistics_get_totals($election, $post, $reset);
+  $query = _election_statistics_totals_query($election);
+  // Group results by post.
+  $query->fields('eb', array('post_id'));
+  $query->groupBy('eb.post_id');
+  $result = $query->execute()->fetchAllAssoc('post_id', PDO::FETCH_ASSOC);
+  // Cache the result (for 5 minutes by default).
+  if ($ttl) {
+    cache_set($cache_key, $result, 'cache', REQUEST_TIME + $ttl);
   }
-  return $totals;
+  return $result;
 }
 
 /**
- * Build a select query for getting total election statistics.
+ * Helper function to build a select query for getting election statistics.
  *
  * @param object $election
  *   The election object.
- * @param object $post
- *   The election post object (optional).
  *
  * @return SelectQuery
  *   A Drupal select query, as returned by db_select().
  */
-function _election_statistics_query_totals($election, $post = NULL) {
-  $query = db_select('election_ballot', 'eb')
-    ->condition('eb.election_id', $election->election_id)
-    ->condition('eb.value', 0, '>');
-  if ($post) {
-    $query->condition('eb.post_id', $post->post_id);
-  }
-  $query->addExpression('COUNT(DISTINCT eb.ballot_id)', 'ballots');
-  $query->addExpression('COUNT(DISTINCT IF(eb.uid = 0, eb.sid_hash, eb.uid))', 'voters');
-  $query->addTag('election_statistics_totals');
-  return $query;
-}
-
-/**
- * Build a select query for getting vote/abstention statistics.
- *
- * @param object $election
- *   The election object.
- * @param object $post
- *   The election post object (optional).
- *
- * @return SelectQuery
- *   A Drupal select query, as returned by db_select().
- */
-function _election_statistics_query_votes($election, $post = NULL) {
+function _election_statistics_totals_query(stdClass $election) {
   $query = db_select('election_ballot', 'eb')
     ->condition('eb.election_id', $election->election_id);
-  if ($post) {
-    $query->condition('eb.post_id', $post->post_id);
-  }
-  $query->join('election_vote', 'ev', 'ev.ballot_id = eb.ballot_id');
-  $query->fields('ev', array('abstain'));
-  $query->addExpression('SUM(DISTINCT eb.value)', 'value');
-  $query->groupBy('ev.abstain');
-  $query->addTag('election_statistics_votes');
+  $query->condition('eb.value', 0, '>');
+  // Get the total number of ballots, votes, and abstentions.
+  $query->addExpression('COUNT(DISTINCT eb.ballot_id)', 'ballots');
+  $query->addExpression('SUM(IF(eb.abstain=0, eb.value, NULL))', 'votes');
+  $query->addExpression('SUM(IF(eb.abstain=1, eb.value, NULL))', 'abstentions');
+  $query->addExpression('COUNT(DISTINCT IF(eb.uid = 0, eb.sid_hash, eb.uid))', 'voters');
+  $query->addTag('election_statistics_totals');
   return $query;
 }
 

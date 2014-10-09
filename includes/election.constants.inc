@@ -15,5 +15,4 @@ define('ELECTION_POST_STATUS_INHERIT', 2);
 
 // Constants for the {election_ballot} table.
 define('ELECTION_ANSWER_NO', -1);
-define('ELECTION_ANSWER_ABSTAIN', 0);
 define('ELECTION_ANSWER_YES', 1);

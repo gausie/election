@@ -409,9 +409,10 @@ function election_stv_preprocess_election_statistics(&$variables) {
     $totals = $variables['totals'];
     $query = db_select('election_ballot', 'eb')
       ->condition('eb.election_id', $election->election_id)
-      ->condition('eb.value', 1, '>');
+      ->condition('eb.value', 0, '>')
+      ->condition('eb.abstain', 0);
     $query->join('election_vote', 'ev', 'ev.ballot_id = eb.ballot_id');
-    $query->addExpression('COUNT(DISTINCT IF(ev.abstain, 0, ev.vote_id))');
+    $query->addExpression('COUNT(DISTINCT ev.vote_id)');
     $totals['rankings'] = $query->execute()->fetchField();
     $variables['content']['election_table']['#header']['rankings'] = t('Rankings (STV)');
     $variables['content']['election_table']['#rows'][0]['rankings'] = t('@rankings (@avg per ballot)', array(

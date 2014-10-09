@@ -144,16 +144,14 @@ function election_results_get_totals($post) {
       // Count votes.
       $query = db_select('election_ballot', 'eb')
         ->condition('eb.post_id', $pid);
-      $query->join('election_vote', 'ev', 'ev.ballot_id = eb.ballot_id');
-      $query->condition('ev.abstain', 0);
+      $query->condition('eb.abstain', 0);
       $query->addExpression('SUM(eb.value)');
       $votes = $query->execute()->fetchField();
 
       // Count abstentions.
       $query = db_select('election_ballot', 'eb')
         ->condition('eb.post_id', $pid);
-      $query->join('election_vote', 'ev', 'ev.ballot_id = eb.ballot_id');
-      $query->condition('ev.abstain', 1);
+      $query->condition('eb.abstain', 1);
       $query->addExpression('SUM(eb.value)');
       $abstentions = $query->execute()->fetchField();
     }

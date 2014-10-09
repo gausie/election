@@ -296,6 +296,7 @@ function election_vote_form_abstain($form, &$form_state) {
       'sid_hash' => _election_vote_session_hash(),
       'timestamp' => REQUEST_TIME,
       'value' => election_vote_get_ballot_value($election, $post, $user),
+      'abstain' => 1,
     );
     $ballot_id = db_insert('election_ballot')
       ->fields($ballot)
@@ -303,16 +304,6 @@ function election_vote_form_abstain($form, &$form_state) {
     if (empty($ballot_id)) {
       throw new Exception('The vote record could not be saved.');
     }
-
-    $vote = array(
-      'ballot_id' => $ballot_id,
-      'election_id' => $election->election_id,
-      'post_id' => $post->post_id,
-      'abstain' => 1,
-    );
-    $success = db_insert('election_vote')
-      ->fields($vote)
-      ->execute();
 
   }
   catch (Exception $e) {
