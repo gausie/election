@@ -145,12 +145,11 @@ function election_referendum_election_results_page_alter(&$output, stdClass $pos
  *   The number of votes.
  */
 function election_referendum_count_votes_by_answer($post, $answer) {
-  $query = db_select('election_vote')
-    ->condition('post_id', $post->post_id)
-    ->condition('valid', 1)
-    ->condition('abstain', 0)
-    ->condition('answer', $answer);
-  $query->addExpression('COUNT(*)');
+  $query = db_select('election_vote', 'ev')
+    ->condition('ev.post_id', $post->post_id)
+    ->condition('ev.answer', $answer);
+  $query->join('election_ballot', 'eb', 'eb.ballot_id = ev.ballot_id');
+  $query->addExpression('SUM(eb.value)');
   return $query->execute()->fetchField();
 }
 

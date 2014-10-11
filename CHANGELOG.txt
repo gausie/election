@@ -1,3 +1,10 @@
+Election 7.x-1.x-dev, 2014-09-29
+-----------------------
+- The election_vote and election_ballot table's column, 'valid', has been
+  renamed to 'value'. If you are querying the database tables
+  'election_ballot' or 'election_vote', you must check for
+  election_ballot.value >= 1.
+
 Election 7.x-1.x-dev, 2014-01-21
 -----------------------
 - Most Views integration code has been replaced by the use of Entity API's

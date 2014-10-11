@@ -146,7 +146,7 @@
 }
 .election-vote-filter-posts a.active {
   color: inherit;
-  cursor: normal;
+  cursor: auto;
 }
 
 /* Statistics */

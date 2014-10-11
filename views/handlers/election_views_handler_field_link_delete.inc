@@ -18,7 +18,6 @@ class election_views_handler_field_link_delete extends election_views_handler_fi
    */
   public function render_link($data, $values) {
     // Ensure user has access to delete this election.
-    $election = new stdClass();
     $election = election_load($this->get_value($values, 'election_id'));
     $election->election_id = $this->get_value($values, 'election_id');
     $election->type = $this->get_value($values, 'type');
