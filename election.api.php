@@ -55,3 +55,17 @@ function hook_election_type_info() {
     ),
   );
 }
+
+/**
+ * Alter existing election types.
+ *
+ * @param array &$types
+ *
+ * @see hook_election_type_info()
+ */
+function hook_election_type_info_alter(array &$types) {
+  // Example: alter the referendum election type to enable exporting.
+  if (isset($types['referendum'])) {
+    $types['referendum']['export'] = TRUE;
+  }
+}
